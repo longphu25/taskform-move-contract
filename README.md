@@ -69,9 +69,15 @@ sui move build
 # Test
 sui move test
 
-# Publish to testnet
+# Publish to testnet (default network)
 sui client publish --gas-budget 100000000
 ```
+
+## Network
+
+- Contract is deployed and operates on **Sui testnet**
+- All development, testing, and frontend interaction uses testnet
+- Walrus Site (frontend hosting) deploys to **mainnet Walrus**
 
 ## Documentation
 

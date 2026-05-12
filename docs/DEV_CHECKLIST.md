@@ -1,6 +1,6 @@
 # TaskForm Move Contract Dev Checklist
 
-Checklist để đảm bảo contract Move đi đúng tinh thần Sui Move: object-centric storage, object ownership, capability-based permission, event indexing, dynamic fields, và metadata pointer đến Walrus.
+Checklist to ensure the Move contract follows Sui Move principles: object-centric storage, object ownership, capability-based permissions, event indexing, dynamic fields, and metadata pointers to Walrus.
 
 ---
 
@@ -8,36 +8,36 @@ Checklist để đảm bảo contract Move đi đúng tinh thần Sui Move: obje
 
 ### 1.1 Object-centric Storage
 
-- [ ] Không thiết kế contract như EVM mapping lớn
-- [ ] Mỗi form là một Sui object riêng
-- [ ] Mỗi submission metadata là object riêng
-- [ ] Không lưu nội dung form/submission lớn on-chain
-- [ ] Chỉ lưu pointer đến Walrus blob
-- [ ] Mọi object đầu vào transaction phải được truyền rõ qua ID/object reference
+- [ ] Do not design the contract like a large EVM mapping
+- [ ] Each form is a separate Sui object
+- [ ] Each submission metadata is a separate object
+- [ ] Do not store large form/submission content on-chain
+- [ ] Only store pointers to Walrus blobs
+- [ ] All transaction input objects must be passed explicitly via ID/object reference
 
 ### 1.2 Object ID and UID
 
-- [ ] Tất cả struct có `key` phải có field đầu tiên là `id: UID`
-- [ ] Không tự tạo hoặc tái sử dụng object ID
+- [ ] All structs with `key` must have `id: UID` as the first field
+- [ ] Do not manually create or reuse object IDs
 
 ### 1.3 Abilities
 
-- [ ] Object on-chain phải có `key`
-- [ ] Object cần chuyển ownership nên có `store`
-- [ ] Event struct nên có `copy, drop`
-- [ ] Không gắn `copy` cho capability objects
+- [ ] On-chain objects must have `key`
+- [ ] Objects that need ownership transfer should have `store`
+- [ ] Event structs should have `copy, drop`
+- [ ] Do not attach `copy` to capability objects
 
 ### 1.4 Entry Functions
 
-- [ ] Dùng `entry fun` cho các hành động người dùng gọi trực tiếp
-- [ ] Không expose function public nếu không cần package khác gọi
-- [ ] Mỗi entry function phải có assert quyền và trạng thái
+- [ ] Use `entry fun` for actions users call directly
+- [ ] Do not expose functions as public unless another package needs to call them
+- [ ] Each entry function must assert permissions and state
 
 ### 1.5 Module Initializer
 
-- [ ] Có `init(ctx: &mut TxContext)` để tạo `TaskFormRegistry`
-- [ ] Registry được share object
-- [ ] Không tạo quá nhiều singleton không cần thiết
+- [ ] Has `init(ctx: &mut TxContext)` to create `TaskFormRegistry`
+- [ ] Registry is a shared object
+- [ ] Do not create unnecessary singletons
 
 ---
 
@@ -45,84 +45,84 @@ Checklist để đảm bảo contract Move đi đúng tinh thần Sui Move: obje
 
 ### 2.1 TaskFormRegistry
 
-- [ ] Registry được tạo trong `init`
-- [ ] Registry được share bằng `transfer::share_object`
-- [ ] Registry chỉ giữ counter hoặc metadata tối thiểu
-- [ ] Không lưu toàn bộ danh sách forms trong vector lớn
-- [ ] Khi tạo form, tăng `form_count`
+- [ ] Registry is created in `init`
+- [ ] Registry is shared via `transfer::share_object`
+- [ ] Registry only holds counter or minimal metadata
+- [ ] Do not store the entire forms list in a large vector
+- [ ] Increment `form_count` when creating a form
 - [ ] Emit `FormCreatedEvent`
 
 ### 2.2 Form Object
 
-- [ ] `Form` là object riêng, shared cho public submit
-- [ ] Không lưu schema JSON trong `Form`
-- [ ] Chỉ lưu `schema_blob_id` và `schema_blob_object_id`
-- [ ] Có `expiry_epoch` để quản lý vòng đời Walrus
-- [ ] Có `is_published` để chặn submit khi form chưa publish
-- [ ] Có `submission_count`
+- [ ] `Form` is a separate object, shared for public submit
+- [ ] Do not store schema JSON in `Form`
+- [ ] Only store `schema_blob_id` and `schema_blob_object_id`
+- [ ] Has `expiry_epoch` for Walrus lifecycle management
+- [ ] Has `is_published` to block submit when form is not published
+- [ ] Has `submission_count`
 
 ### 2.3 CreatorCap
 
-- [ ] Mint `CreatorCap` khi tạo form
-- [ ] Transfer `CreatorCap` cho creator
-- [ ] Luôn kiểm tra `cap.form_id == object::id(form)`
-- [ ] Không cho copy capability
+- [ ] Mint `CreatorCap` when creating a form
+- [ ] Transfer `CreatorCap` to creator
+- [ ] Always check `cap.form_id == object::id(form)`
+- [ ] Do not allow copying the capability
 
 ### 2.4 AdminCap
 
-- [ ] Chỉ CreatorCap holder được cấp AdminCap
-- [ ] AdminCap gắn với đúng form ID
-- [ ] Có event khi add admin
+- [ ] Only CreatorCap holder can grant AdminCap
+- [ ] AdminCap is bound to the correct form ID
+- [ ] Emit event when adding admin
 
 ### 2.5 SubmissionMeta
 
-- [ ] Không lưu response body on-chain
-- [ ] Chỉ lưu pointer đến Walrus submission blob
-- [ ] Có `form_id`, `expiry_epoch`, `status`, `priority`
-- [ ] Có `created_at_ms` từ `Clock`
-- [ ] Không cho submit nếu form chưa publish
+- [ ] Do not store response body on-chain
+- [ ] Only store pointer to Walrus submission blob
+- [ ] Has `form_id`, `expiry_epoch`, `status`, `priority`
+- [ ] Has `created_at_ms` from `Clock`
+- [ ] Do not allow submit if form is not published
 
 ---
 
 ## 3. Event Indexing
 
-- [ ] Emit event khi tạo form
-- [ ] Emit event khi publish/unpublish form
-- [ ] Emit event khi submit
-- [ ] Emit event khi update status/priority
-- [ ] Emit event khi renew storage
-- [ ] Event không chứa dữ liệu nhạy cảm
-- [ ] Event không chứa raw response body
+- [ ] Emit event when creating form
+- [ ] Emit event when publishing/unpublishing form
+- [ ] Emit event when submitting
+- [ ] Emit event when updating status/priority
+- [ ] Emit event when renewing storage
+- [ ] Events must not contain sensitive data
+- [ ] Events must not contain raw response body
 
 ---
 
 ## 4. Walrus Pointer Pattern
 
-- [ ] Form schema lưu ở Walrus
-- [ ] Submission body lưu ở Walrus
-- [ ] Screenshot/video lưu ở Walrus
-- [ ] Sensitive payload đã encrypt trước khi upload
-- [ ] On-chain chỉ lưu blob ID, blob object ID, expiry epoch
-- [ ] Không lưu email/phone/private response on-chain
+- [ ] Form schema stored on Walrus
+- [ ] Submission body stored on Walrus
+- [ ] Screenshots/videos stored on Walrus
+- [ ] Sensitive payload encrypted before upload
+- [ ] On-chain only stores blob ID, blob object ID, expiry epoch
+- [ ] Do not store email/phone/private responses on-chain
 
 ---
 
 ## 5. Storage Lifecycle
 
-- [ ] Khi publish form, lưu `expiry_epoch`
-- [ ] Khi submit, lưu `submission expiry_epoch`
-- [ ] Có function update expiry metadata sau khi Walrus blob được gia hạn
-- [ ] Chỉ CreatorCap holder được update form storage expiry
+- [ ] When publishing form, store `expiry_epoch`
+- [ ] When submitting, store `submission expiry_epoch`
+- [ ] Has function to update expiry metadata after Walrus blob renewal
+- [ ] Only CreatorCap holder can update form storage expiry
 
 ---
 
 ## 6. Sponsored Submission
 
-- [ ] Không để sponsor private key trong frontend
-- [ ] Có `sponsored_enabled` trong Form
-- [ ] Có fallback self-paid nếu sponsor unavailable
-- [ ] Có max file size để tránh drain sponsor budget
-- [ ] Transaction payload phải được validate trước khi sponsor ký
+- [ ] Do not put sponsor private key in frontend
+- [ ] Has `sponsored_enabled` in Form
+- [ ] Has self-paid fallback if sponsor unavailable
+- [ ] Has max file size to prevent draining sponsor budget
+- [ ] Transaction payload must be validated before sponsor signs
 
 ---
 
@@ -144,7 +144,7 @@ Checklist để đảm bảo contract Move đi đúng tinh thần Sui Move: obje
 
 ### Public Actions
 
-- [ ] submit_form (chỉ khi `is_published == true`)
+- [ ] submit_form (only when `is_published == true`)
 
 ---
 
