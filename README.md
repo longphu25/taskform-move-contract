@@ -19,10 +19,10 @@ Sensitive data is encrypted with **Seal** before upload.
 | Object | Type | Purpose |
 |--------|------|---------|
 | TaskFormRegistry | shared | Global registry, tracks form count |
-| Form | shared | Form metadata + Walrus blob pointers |
+| Form | shared | Form metadata + Walrus blob pointers + submissions (dynamic fields) |
 | CreatorCap | owned | Proves form ownership |
 | AdminCap | owned | Delegated admin access |
-| SubmissionMeta | owned | Submission pointer + status/priority |
+| SubmissionMeta | dynamic field on Form | Submission pointer + status/priority |
 | SponsorVault | optional | Holds sponsor funds (nice-to-have) |
 
 ## Entry Functions
@@ -46,10 +46,9 @@ contract/
 ├── Move.toml
 ├── sources/
 │   ├── taskform.move        # Main module + init
-│   ├── errors.move          # Error codes
 │   ├── events.move          # Event structs
 │   ├── capabilities.move    # CreatorCap, AdminCap
-│   ├── submission.move      # SubmissionMeta
+│   ├── submission.move      # SubmissionMeta (dynamic field on Form)
 │   └── sponsor.move         # SponsorVault (optional)
 ├── tests/
 │   ├── taskform_tests.move
