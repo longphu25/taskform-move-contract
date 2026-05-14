@@ -82,9 +82,9 @@ sui client publish --gas-budget 100000000
 
 | Item | ID |
 |------|-----|
-| Package | `0x657b4145e585ad305ac351170eb78c49ba8ba3099135e64ece43c02da1b69f0f` |
-| TaskFormRegistry | `0x4b6690f251dc18f19afd22f4f5dad0f00bb94971832386e225ab94332b67f405` |
-| UpgradeCap | `0xfb74655a33b008c81219113733260bc48ff7e126be929dd35970a4f223fb148c` |
+| Package | `0x618af641c9284ec83110455fecca162ee74d62af37ee3b279f6780e4a29d6d2b` |
+| TaskFormRegistry | `0x5b7c1c11736440be1ab102270277458cbeea6ae7f53131180ebb42fc4fb3de7b` |
+| UpgradeCap | `0xbbe7330490cbfcdcb5b0585c3a45cf9a52e28efdca65dbd5515106acb55c1ecc` |
 
 ## Documentation
 
