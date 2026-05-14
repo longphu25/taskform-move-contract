@@ -31,6 +31,7 @@ public struct Form has key, store {
   title: String,
   schema_blob_id: vector<u8>,
   schema_blob_object_id: ID,
+  schema_download_id: vector<u8>,
   expiry_epoch: u64,
   submission_count: u64,
   is_published: bool,
@@ -70,6 +71,10 @@ public fun schema_blob_id(form: &Form): vector<u8> {
   form.schema_blob_id
 }
 
+public fun schema_download_id(form: &Form): vector<u8> {
+  form.schema_download_id
+}
+
 public fun is_published(form: &Form): bool {
   form.is_published
 }
@@ -90,6 +95,7 @@ public entry fun create_form(
   title: String,
   schema_blob_id: vector<u8>,
   schema_blob_object_id: ID,
+  schema_download_id: vector<u8>,
   expiry_epoch: u64,
   clock: &Clock,
   ctx: &mut TxContext,
@@ -104,6 +110,7 @@ public entry fun create_form(
     title,
     schema_blob_id,
     schema_blob_object_id,
+    schema_download_id,
     expiry_epoch,
     submission_count: 0,
     is_published: false,

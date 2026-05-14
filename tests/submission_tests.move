@@ -28,6 +28,7 @@ fun setup_form(scenario: &mut ts::Scenario) {
     b"Test Form".to_string(),
     b"blob123",
     object::id_from_address(@0x1),
+    b"download123",
     100,
     &clock,
     ts::ctx(scenario),
