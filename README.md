@@ -14,15 +14,19 @@ Move is **not** a database. It controls:
 Large data (form schemas, submissions, attachments) lives on **Walrus**.
 Sensitive data is encrypted with **Seal** before upload.
 
+Submission metadata is stored as dynamic object fields under each shared `Form`. This lets the
+creator dashboard list submissions by form object ID, then download the full submission body from
+Walrus only when needed.
+
 ## Objects
 
 | Object | Type | Purpose |
 |--------|------|---------|
 | TaskFormRegistry | shared | Global registry, tracks form count |
-| Form | shared | Form metadata + Walrus blob pointers + submissions (dynamic fields) |
+| Form | shared | Form metadata + Walrus blob pointers |
 | CreatorCap | owned | Proves form ownership |
 | AdminCap | owned | Delegated admin access |
-| SubmissionMeta | dynamic field on Form | Submission pointer + status/priority |
+| SubmissionMeta | dynamic object field under Form | Submission pointer + status/priority + admin note pointer |
 | SponsorVault | optional | Holds sponsor funds (nice-to-have) |
 
 ## Entry Functions
@@ -36,6 +40,7 @@ Sensitive data is encrypted with **Seal** before upload.
 | `add_admin` | CreatorCap | Delegate AdminCap |
 | `update_submission_status` | AdminCap | Change status |
 | `update_submission_priority` | AdminCap | Change priority |
+| `update_submission_admin_note` | AdminCap | Store admin note Walrus pointer |
 | `update_form_storage_expiry` | CreatorCap | Update expiry tracking |
 | `configure_sponsored_mode` | CreatorCap | Toggle sponsored submissions |
 
@@ -46,9 +51,10 @@ contract/
 ├── Move.toml
 ├── sources/
 │   ├── taskform.move        # Main module + init
+│   ├── errors.move          # Error codes
 │   ├── events.move          # Event structs
 │   ├── capabilities.move    # CreatorCap, AdminCap
-│   ├── submission.move      # SubmissionMeta (dynamic field on Form)
+│   ├── submission.move      # SubmissionMeta
 │   └── sponsor.move         # SponsorVault (optional)
 ├── tests/
 │   ├── taskform_tests.move
@@ -68,9 +74,18 @@ sui move build
 # Test
 sui move test
 
-# Publish to testnet (default network)
-sui client publish --gas-budget 100000000
+# Publish to active Sui network and print deploy IDs
+make publish
+
+# Optional controls
+GAS_BUDGET=200000000 make publish
+PRINT_PUBLISH_JSON=1 make publish
 ```
+
+`make publish` prints a compact deployment summary with Package ID,
+TaskFormRegistry ID, UpgradeCap ID, publish digest, frontend constants, and
+docs snippets. Use `PRINT_PUBLISH_JSON=1` only when the raw Sui CLI response is
+needed for debugging.
 
 ## Network
 
@@ -82,9 +97,9 @@ sui client publish --gas-budget 100000000
 
 | Item | ID |
 |------|-----|
-| Package | `0x168cecda7807f9e20e0a87611834d37583b7e7545a57fe0c92fab5b6477d5eff` |
-| TaskFormRegistry | `0x836a4776d73ceea1aeba030e11bd306825e2c2efc06f16bd6f1326bead8ad021` |
-| UpgradeCap | `0x60645d9ed5261457b57936ba501527909364161ca78a579c51a10db46fbc2da0` |
+| Package | `0x74c03ba837ce1a8efce0ca36c25a5e734cbfb266a660d1a480a54ad6b02560c6` |
+| TaskFormRegistry | `0x217f15103336d13f408caedc8a9b10cd1aa6ee199aab22da7f130fed1e9e3f5f` |
+| UpgradeCap | `0x883a127c4bffe45b3a857f9f14677ba49f437e052badcc98d592da0d4f293284` |
 
 ## Documentation
 
@@ -96,5 +111,5 @@ sui client publish --gas-budget 100000000
 ```text
 create-form.html:  Upload schema → Walrus → create_form → publish_form → public link
 form.html:         Load schema → Walrus → render → encrypt → upload → submit_form
-dashboard.html:    Query events → download from Walrus → validate → decrypt → update status
+dashboard.html:    List Form dynamic fields → fetch SubmissionMeta → download Walrus body → decrypt/review/export
 ```

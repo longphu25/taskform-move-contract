@@ -54,6 +54,7 @@ struct Form has key, store {
     schema_blob_object_id: ID,
     expiry_epoch: u64,
     submission_count: u64,
+    latest_submission_id: ID,
     is_published: bool,
     sponsored_enabled: bool,
 }
@@ -65,7 +66,9 @@ Purpose:
 - Tracks storage expiry.
 - Controls public submit through `is_published`.
 - Tracks number of submissions.
+- Tracks latest submission object ID for quick UI hydration.
 - Stores sponsored mode flag.
+- Owns submission metadata as dynamic object fields keyed by `SubmissionMeta` object ID.
 
 ### CreatorCap
 
@@ -122,6 +125,9 @@ struct SubmissionMeta has key, store {
     created_at_ms: u64,
     status: u8,
     priority: u8,
+    admin_note_blob_id: vector<u8>,
+    admin_note_blob_object_id: Option<ID>,
+    admin_note_updated_at_ms: u64,
 }
 ```
 
@@ -129,7 +135,9 @@ Purpose:
 - Stores pointer to Walrus submission JSON.
 - Stores expiry metadata.
 - Stores status and priority.
+- Stores an optional Walrus pointer for admin note content.
 - Supports dashboard indexing.
+- Lives under `Form` as a dynamic object field keyed by its own object ID.
 
 ### Optional SponsorVault
 
@@ -154,7 +162,8 @@ const STATUS_REVIEWING: u8 = 1;
 const STATUS_PLANNED: u8 = 2;
 const STATUS_IN_PROGRESS: u8 = 3;
 const STATUS_DONE: u8 = 4;
-const STATUS_ARCHIVED: u8 = 5;
+const STATUS_RESOLVED: u8 = 5;
+const STATUS_ARCHIVED: u8 = 6;
 
 const PRIORITY_LOW: u8 = 0;
 const PRIORITY_MEDIUM: u8 = 1;
@@ -200,6 +209,13 @@ struct SubmissionUpdatedEvent has copy, drop {
     updated_at_ms: u64,
 }
 
+struct SubmissionAdminNoteUpdatedEvent has copy, drop {
+    form_id: ID,
+    submission_id: ID,
+    note_blob_id: vector<u8>,
+    updated_at_ms: u64,
+}
+
 struct AdminAddedEvent has copy, drop {
     form_id: ID,
     admin: address,
@@ -223,7 +239,8 @@ struct SponsoredModeUpdatedEvent has copy, drop {
 Rules:
 - No raw submission body in events.
 - No email/phone/private data in events.
-- Use events for dashboard indexing.
+- Use dynamic object fields under `Form` as the primary dashboard query path.
+- Use events for activity timelines, audit trails, and fallback indexing.
 
 ## Entry Functions
 
@@ -290,9 +307,9 @@ public entry fun add_admin(
 
 ```move
 public entry fun update_submission_status(
-    form: &Form,
-    submission: &mut SubmissionMeta,
+    form: &mut Form,
     admin_cap: &AdminCap,
+    submission_id: ID,
     status: u8,
     clock: &Clock
 )
@@ -302,10 +319,23 @@ public entry fun update_submission_status(
 
 ```move
 public entry fun update_submission_priority(
-    form: &Form,
-    submission: &mut SubmissionMeta,
+    form: &mut Form,
     admin_cap: &AdminCap,
+    submission_id: ID,
     priority: u8,
+    clock: &Clock
+)
+```
+
+### update_submission_admin_note
+
+```move
+public entry fun update_submission_admin_note(
+    form: &mut Form,
+    admin_cap: &AdminCap,
+    submission_id: ID,
+    note_blob_id: vector<u8>,
+    note_blob_object_id: ID,
     clock: &Clock
 )
 ```

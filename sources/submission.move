@@ -1,7 +1,5 @@
-#[allow(unused_const)]
+#[allow(unused_const, lint(custom_state_change))]
 module taskform::submission;
-
-use sui::dynamic_field;
 
 // === Constants ===
 
@@ -10,7 +8,8 @@ const STATUS_REVIEWING: u8 = 1;
 const STATUS_PLANNED: u8 = 2;
 const STATUS_IN_PROGRESS: u8 = 3;
 const STATUS_DONE: u8 = 4;
-const STATUS_ARCHIVED: u8 = 5;
+const STATUS_RESOLVED: u8 = 5;
+const STATUS_ARCHIVED: u8 = 6;
 
 const PRIORITY_LOW: u8 = 0;
 const PRIORITY_MEDIUM: u8 = 1;
@@ -20,9 +19,8 @@ const PRIORITY_CRITICAL: u8 = 3;
 // === Struct ===
 
 /// Metadata pointer for a submission stored on Walrus.
-/// Stored as dynamic field on Form object.
-public struct SubmissionMeta has store {
-  id: ID,
+public struct SubmissionMeta has key, store {
+  id: UID,
   form_id: ID,
   submitter: address,
   submission_blob_id: vector<u8>,
@@ -32,12 +30,15 @@ public struct SubmissionMeta has store {
   created_at_ms: u64,
   status: u8,
   priority: u8,
+  admin_note_blob_id: vector<u8>,
+  admin_note_blob_object_id: Option<ID>,
+  admin_note_updated_at_ms: u64,
 }
 
 // === Public Accessors ===
 
 public fun id(sub: &SubmissionMeta): ID {
-  sub.id
+  object::uid_to_inner(&sub.id)
 }
 
 public fun form_id(sub: &SubmissionMeta): ID {
@@ -58,6 +59,14 @@ public fun priority(sub: &SubmissionMeta): u8 {
 
 public fun submission_blob_id(sub: &SubmissionMeta): vector<u8> {
   sub.submission_blob_id
+}
+
+public fun admin_note_blob_id(sub: &SubmissionMeta): vector<u8> {
+  sub.admin_note_blob_id
+}
+
+public fun admin_note_updated_at_ms(sub: &SubmissionMeta): u64 {
+  sub.admin_note_updated_at_ms
 }
 
 // === Validation ===
@@ -82,11 +91,8 @@ public(package) fun new(
   created_at_ms: u64,
   ctx: &mut TxContext,
 ): SubmissionMeta {
-  let uid = object::new(ctx);
-  let id = object::uid_to_inner(&uid);
-  object::delete(uid);
   SubmissionMeta {
-    id,
+    id: object::new(ctx),
     form_id,
     submitter,
     submission_blob_id,
@@ -96,18 +102,10 @@ public(package) fun new(
     created_at_ms,
     status: STATUS_NEW,
     priority: PRIORITY_LOW,
+    admin_note_blob_id: b"",
+    admin_note_blob_object_id: option::none(),
+    admin_note_updated_at_ms: 0,
   }
-}
-
-/// Store submission as dynamic field on form
-public(package) fun add_to_form(form_uid: &mut UID, sub: SubmissionMeta) {
-  let sub_id = sub.id;
-  dynamic_field::add(form_uid, sub_id, sub);
-}
-
-/// Borrow mutable submission from form
-public(package) fun borrow_mut(form_uid: &mut UID, submission_id: ID): &mut SubmissionMeta {
-  dynamic_field::borrow_mut(form_uid, submission_id)
 }
 
 public(package) fun set_status(sub: &mut SubmissionMeta, new_status: u8) {
@@ -116,4 +114,15 @@ public(package) fun set_status(sub: &mut SubmissionMeta, new_status: u8) {
 
 public(package) fun set_priority(sub: &mut SubmissionMeta, new_priority: u8) {
   sub.priority = new_priority;
+}
+
+public(package) fun set_admin_note(
+  sub: &mut SubmissionMeta,
+  note_blob_id: vector<u8>,
+  note_blob_object_id: ID,
+  updated_at_ms: u64,
+) {
+  sub.admin_note_blob_id = note_blob_id;
+  sub.admin_note_blob_object_id = option::some(note_blob_object_id);
+  sub.admin_note_updated_at_ms = updated_at_ms;
 }

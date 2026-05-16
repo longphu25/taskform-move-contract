@@ -39,6 +39,13 @@ public struct SubmissionUpdatedEvent has copy, drop {
   updated_at_ms: u64,
 }
 
+public struct SubmissionAdminNoteUpdatedEvent has copy, drop {
+  form_id: ID,
+  submission_id: ID,
+  note_blob_id: vector<u8>,
+  updated_at_ms: u64,
+}
+
 public struct AdminAddedEvent has copy, drop {
   form_id: ID,
   admin: address,
@@ -101,6 +108,20 @@ public(package) fun emit_submission_updated(
   updated_at_ms: u64,
 ) {
   event::emit(SubmissionUpdatedEvent { form_id, submission_id, status, priority, updated_at_ms });
+}
+
+public(package) fun emit_submission_admin_note_updated(
+  form_id: ID,
+  submission_id: ID,
+  note_blob_id: vector<u8>,
+  updated_at_ms: u64,
+) {
+  event::emit(SubmissionAdminNoteUpdatedEvent {
+    form_id,
+    submission_id,
+    note_blob_id,
+    updated_at_ms,
+  });
 }
 
 public(package) fun emit_admin_added(form_id: ID, admin: address, added_at_ms: u64) {
