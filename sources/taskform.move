@@ -33,6 +33,7 @@ public struct Form has key, store {
   title: String,
   schema_blob_id: vector<u8>,
   schema_blob_object_id: ID,
+  schema_download_id: vector<u8>,
   expiry_epoch: u64,
   submission_count: u64,
   latest_submission_id: ID,
@@ -71,6 +72,10 @@ public fun title(form: &Form): String {
 
 public fun schema_blob_id(form: &Form): vector<u8> {
   form.schema_blob_id
+}
+
+public fun schema_download_id(form: &Form): vector<u8> {
+  form.schema_download_id
 }
 
 public fun is_published(form: &Form): bool {
@@ -112,6 +117,7 @@ public entry fun create_form(
   title: String,
   schema_blob_id: vector<u8>,
   schema_blob_object_id: ID,
+  schema_download_id: vector<u8>,
   expiry_epoch: u64,
   clock: &Clock,
   ctx: &mut TxContext,
@@ -126,6 +132,7 @@ public entry fun create_form(
     title,
     schema_blob_id,
     schema_blob_object_id,
+    schema_download_id,
     expiry_epoch,
     submission_count: 0,
     latest_submission_id: object::id_from_address(@0x0),
@@ -181,6 +188,7 @@ public entry fun submit_form(
   form: &mut Form,
   submission_blob_id: vector<u8>,
   submission_blob_object_id: ID,
+  submission_download_id: vector<u8>,
   expiry_epoch: u64,
   clock: &Clock,
   ctx: &mut TxContext,
@@ -194,8 +202,10 @@ public entry fun submit_form(
 
   let sub = submission::new(
     form_obj_id,
+    sender,
     submission_blob_id,
     submission_blob_object_id,
+    submission_download_id,
     expiry_epoch,
     created_at_ms,
     ctx,

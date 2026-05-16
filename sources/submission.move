@@ -22,8 +22,10 @@ const PRIORITY_CRITICAL: u8 = 3;
 public struct SubmissionMeta has key, store {
   id: UID,
   form_id: ID,
+  submitter: address,
   submission_blob_id: vector<u8>,
   submission_blob_object_id: ID,
+  submission_download_id: vector<u8>,
   expiry_epoch: u64,
   created_at_ms: u64,
   status: u8,
@@ -41,6 +43,10 @@ public fun id(sub: &SubmissionMeta): ID {
 
 public fun form_id(sub: &SubmissionMeta): ID {
   sub.form_id
+}
+
+public fun submitter(sub: &SubmissionMeta): address {
+  sub.submitter
 }
 
 public fun status(sub: &SubmissionMeta): u8 {
@@ -77,8 +83,10 @@ public fun is_valid_priority(priority: u8): bool {
 
 public(package) fun new(
   form_id: ID,
+  submitter: address,
   submission_blob_id: vector<u8>,
   submission_blob_object_id: ID,
+  submission_download_id: vector<u8>,
   expiry_epoch: u64,
   created_at_ms: u64,
   ctx: &mut TxContext,
@@ -86,8 +94,10 @@ public(package) fun new(
   SubmissionMeta {
     id: object::new(ctx),
     form_id,
+    submitter,
     submission_blob_id,
     submission_blob_object_id,
+    submission_download_id,
     expiry_epoch,
     created_at_ms,
     status: STATUS_NEW,
