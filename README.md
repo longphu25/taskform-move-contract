@@ -74,9 +74,18 @@ sui move build
 # Test
 sui move test
 
-# Publish to testnet (default network)
-sui client publish --gas-budget 100000000
+# Publish to active Sui network and print deploy IDs
+make publish
+
+# Optional controls
+GAS_BUDGET=200000000 make publish
+PRINT_PUBLISH_JSON=1 make publish
 ```
+
+`make publish` prints a compact deployment summary with Package ID,
+TaskFormRegistry ID, UpgradeCap ID, publish digest, frontend constants, and
+docs snippets. Use `PRINT_PUBLISH_JSON=1` only when the raw Sui CLI response is
+needed for debugging.
 
 ## Network
 
