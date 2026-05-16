@@ -8,7 +8,8 @@ const STATUS_REVIEWING: u8 = 1;
 const STATUS_PLANNED: u8 = 2;
 const STATUS_IN_PROGRESS: u8 = 3;
 const STATUS_DONE: u8 = 4;
-const STATUS_ARCHIVED: u8 = 5;
+const STATUS_RESOLVED: u8 = 5;
+const STATUS_ARCHIVED: u8 = 6;
 
 const PRIORITY_LOW: u8 = 0;
 const PRIORITY_MEDIUM: u8 = 1;
@@ -27,6 +28,9 @@ public struct SubmissionMeta has key, store {
   created_at_ms: u64,
   status: u8,
   priority: u8,
+  admin_note_blob_id: vector<u8>,
+  admin_note_blob_object_id: Option<ID>,
+  admin_note_updated_at_ms: u64,
 }
 
 // === Public Accessors ===
@@ -49,6 +53,14 @@ public fun priority(sub: &SubmissionMeta): u8 {
 
 public fun submission_blob_id(sub: &SubmissionMeta): vector<u8> {
   sub.submission_blob_id
+}
+
+public fun admin_note_blob_id(sub: &SubmissionMeta): vector<u8> {
+  sub.admin_note_blob_id
+}
+
+public fun admin_note_updated_at_ms(sub: &SubmissionMeta): u64 {
+  sub.admin_note_updated_at_ms
 }
 
 // === Validation ===
@@ -80,6 +92,9 @@ public(package) fun new(
     created_at_ms,
     status: STATUS_NEW,
     priority: PRIORITY_LOW,
+    admin_note_blob_id: b"",
+    admin_note_blob_object_id: option::none(),
+    admin_note_updated_at_ms: 0,
   }
 }
 
@@ -91,6 +106,13 @@ public(package) fun set_priority(sub: &mut SubmissionMeta, new_priority: u8) {
   sub.priority = new_priority;
 }
 
-public(package) fun transfer_to_sender(sub: SubmissionMeta, sender: address) {
-  transfer::transfer(sub, sender);
+public(package) fun set_admin_note(
+  sub: &mut SubmissionMeta,
+  note_blob_id: vector<u8>,
+  note_blob_object_id: ID,
+  updated_at_ms: u64,
+) {
+  sub.admin_note_blob_id = note_blob_id;
+  sub.admin_note_blob_object_id = option::some(note_blob_object_id);
+  sub.admin_note_updated_at_ms = updated_at_ms;
 }

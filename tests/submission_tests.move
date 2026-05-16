@@ -6,7 +6,6 @@ use std::string;
 use sui::clock::{Self, Clock};
 use sui::test_scenario::{Self as ts, Scenario};
 use taskform::capabilities::{CreatorCap, AdminCap};
-use taskform::submission::{Self, SubmissionMeta};
 use taskform::taskform::{Self, TaskFormRegistry, Form};
 
 const CREATOR: address = @0xA;
@@ -69,13 +68,13 @@ fun test_submit_form() {
     assert!(taskform::submission_count(&form) == 1);
     ts::return_shared(form);
   };
-  // Verify submitter owns SubmissionMeta
   ts::next_tx(&mut scenario, SUBMITTER);
   {
-    let sub = ts::take_from_sender<SubmissionMeta>(&scenario);
-    assert!(submission::status(&sub) == 0); // STATUS_NEW
-    assert!(submission::priority(&sub) == 0); // PRIORITY_LOW
-    ts::return_to_sender(&scenario, sub);
+    let form = ts::take_shared<Form>(&scenario);
+    let submission_id = taskform::latest_submission_id(&form);
+    assert!(taskform::submission_status(&form, submission_id) == 0); // STATUS_NEW
+    assert!(taskform::submission_priority(&form, submission_id) == 0); // PRIORITY_LOW
+    ts::return_shared(form);
   };
   clock::destroy_for_testing(clock);
   ts::end(scenario);
@@ -102,9 +101,9 @@ fun test_update_submission_status_and_priority() {
     );
     ts::return_shared(form);
   };
+  ts::next_tx(&mut scenario, CREATOR);
 
   // Add admin
-  ts::next_tx(&mut scenario, CREATOR);
   {
     let form = ts::take_shared<Form>(&scenario);
     let cap = ts::take_from_sender<CreatorCap>(&scenario);
@@ -116,17 +115,72 @@ fun test_update_submission_status_and_priority() {
   // Admin updates status
   ts::next_tx(&mut scenario, ADMIN);
   {
-    let form = ts::take_shared<Form>(&scenario);
+    let mut form = ts::take_shared<Form>(&scenario);
+    let submission_id = taskform::latest_submission_id(&form);
     let admin_cap = ts::take_from_sender<AdminCap>(&scenario);
-    let mut sub = ts::take_from_address<SubmissionMeta>(&scenario, SUBMITTER);
 
-    taskform::update_submission_status(&form, &mut sub, &admin_cap, 3, &clock); // IN_PROGRESS
-    assert!(submission::status(&sub) == 3);
+    taskform::update_submission_status(&mut form, &admin_cap, submission_id, 3, &clock); // IN_PROGRESS
+    assert!(taskform::submission_status(&form, submission_id) == 3);
 
-    taskform::update_submission_priority(&form, &mut sub, &admin_cap, 2, &clock); // HIGH
-    assert!(submission::priority(&sub) == 2);
+    taskform::update_submission_priority(&mut form, &admin_cap, submission_id, 2, &clock); // HIGH
+    assert!(taskform::submission_priority(&form, submission_id) == 2);
 
-    ts::return_to_address(SUBMITTER, sub);
+    ts::return_to_sender(&scenario, admin_cap);
+    ts::return_shared(form);
+  };
+  clock::destroy_for_testing(clock);
+  ts::end(scenario);
+}
+
+#[test]
+fun test_update_submission_admin_note() {
+  let mut scenario = ts::begin(CREATOR);
+  let clock = clock::create_for_testing(ts::ctx(&mut scenario));
+
+  create_published_form(&mut scenario, &clock);
+
+  // Submit
+  ts::next_tx(&mut scenario, SUBMITTER);
+  {
+    let mut form = ts::take_shared<Form>(&scenario);
+    taskform::submit_form(
+      &mut form,
+      b"sub_blob_note",
+      object::id_from_address(@0x35),
+      700,
+      &clock,
+      ts::ctx(&mut scenario),
+    );
+    ts::return_shared(form);
+  };
+  ts::next_tx(&mut scenario, CREATOR);
+
+  // Add admin
+  {
+    let form = ts::take_shared<Form>(&scenario);
+    let cap = ts::take_from_sender<CreatorCap>(&scenario);
+    taskform::add_admin(&form, &cap, ADMIN, &clock, ts::ctx(&mut scenario));
+    ts::return_to_sender(&scenario, cap);
+    ts::return_shared(form);
+  };
+
+  // Admin writes note pointer
+  ts::next_tx(&mut scenario, ADMIN);
+  {
+    let mut form = ts::take_shared<Form>(&scenario);
+    let submission_id = taskform::latest_submission_id(&form);
+    let admin_cap = ts::take_from_sender<AdminCap>(&scenario);
+
+    taskform::update_submission_admin_note(
+      &mut form,
+      &admin_cap,
+      submission_id,
+      b"admin_note_blob",
+      object::id_from_address(@0x36),
+      &clock,
+    );
+    assert!(taskform::submission_admin_note_blob_id(&form, submission_id) == b"admin_note_blob");
+
     ts::return_to_sender(&scenario, admin_cap);
     ts::return_shared(form);
   };
@@ -194,9 +248,9 @@ fun test_invalid_status_fails() {
     );
     ts::return_shared(form);
   };
+  ts::next_tx(&mut scenario, CREATOR);
 
   // Add admin
-  ts::next_tx(&mut scenario, CREATOR);
   {
     let form = ts::take_shared<Form>(&scenario);
     let cap = ts::take_from_sender<CreatorCap>(&scenario);
@@ -205,16 +259,15 @@ fun test_invalid_status_fails() {
     ts::return_shared(form);
   };
 
-  // Try invalid status (6 is out of range)
+  // Try invalid status (7 is out of range)
   ts::next_tx(&mut scenario, ADMIN);
   {
-    let form = ts::take_shared<Form>(&scenario);
+    let mut form = ts::take_shared<Form>(&scenario);
+    let submission_id = taskform::latest_submission_id(&form);
     let admin_cap = ts::take_from_sender<AdminCap>(&scenario);
-    let mut sub = ts::take_from_address<SubmissionMeta>(&scenario, SUBMITTER);
 
-    taskform::update_submission_status(&form, &mut sub, &admin_cap, 6, &clock);
+    taskform::update_submission_status(&mut form, &admin_cap, submission_id, 7, &clock);
 
-    ts::return_to_address(SUBMITTER, sub);
     ts::return_to_sender(&scenario, admin_cap);
     ts::return_shared(form);
   };
@@ -243,9 +296,9 @@ fun test_invalid_priority_fails() {
     );
     ts::return_shared(form);
   };
+  ts::next_tx(&mut scenario, CREATOR);
 
   // Add admin
-  ts::next_tx(&mut scenario, CREATOR);
   {
     let form = ts::take_shared<Form>(&scenario);
     let cap = ts::take_from_sender<CreatorCap>(&scenario);
@@ -257,13 +310,12 @@ fun test_invalid_priority_fails() {
   // Try invalid priority (4 is out of range)
   ts::next_tx(&mut scenario, ADMIN);
   {
-    let form = ts::take_shared<Form>(&scenario);
+    let mut form = ts::take_shared<Form>(&scenario);
+    let submission_id = taskform::latest_submission_id(&form);
     let admin_cap = ts::take_from_sender<AdminCap>(&scenario);
-    let mut sub = ts::take_from_address<SubmissionMeta>(&scenario, SUBMITTER);
 
-    taskform::update_submission_priority(&form, &mut sub, &admin_cap, 4, &clock);
+    taskform::update_submission_priority(&mut form, &admin_cap, submission_id, 4, &clock);
 
-    ts::return_to_address(SUBMITTER, sub);
     ts::return_to_sender(&scenario, admin_cap);
     ts::return_shared(form);
   };

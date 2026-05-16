@@ -3,6 +3,7 @@ module taskform::taskform;
 
 use std::string::String;
 use sui::clock::Clock;
+use sui::dynamic_object_field as dof;
 use taskform::capabilities::{Self, CreatorCap, AdminCap};
 use taskform::events;
 use taskform::submission::{Self, SubmissionMeta};
@@ -15,7 +16,7 @@ const EInvalidStatus: u64 = 4;
 const EInvalidPriority: u64 = 5;
 const EInvalidBlobPointer: u64 = 9;
 const EInvalidAdminCap: u64 = 2;
-const ESubmissionFormMismatch: u64 = 10;
+const EInvalidAdminNotePointer: u64 = 11;
 
 // === Structs ===
 
@@ -34,6 +35,7 @@ public struct Form has key, store {
   schema_blob_object_id: ID,
   expiry_epoch: u64,
   submission_count: u64,
+  latest_submission_id: ID,
   is_published: bool,
   sponsored_enabled: bool,
 }
@@ -79,8 +81,27 @@ public fun submission_count(form: &Form): u64 {
   form.submission_count
 }
 
+public fun latest_submission_id(form: &Form): ID {
+  form.latest_submission_id
+}
+
 public fun sponsored_enabled(form: &Form): bool {
   form.sponsored_enabled
+}
+
+public fun submission_status(form: &Form, submission_id: ID): u8 {
+  let sub = dof::borrow<ID, SubmissionMeta>(&form.id, submission_id);
+  submission::status(sub)
+}
+
+public fun submission_priority(form: &Form, submission_id: ID): u8 {
+  let sub = dof::borrow<ID, SubmissionMeta>(&form.id, submission_id);
+  submission::priority(sub)
+}
+
+public fun submission_admin_note_blob_id(form: &Form, submission_id: ID): vector<u8> {
+  let sub = dof::borrow<ID, SubmissionMeta>(&form.id, submission_id);
+  submission::admin_note_blob_id(sub)
 }
 
 // === Entry Functions ===
@@ -107,6 +128,7 @@ public entry fun create_form(
     schema_blob_object_id,
     expiry_epoch,
     submission_count: 0,
+    latest_submission_id: object::id_from_address(@0x0),
     is_published: false,
     sponsored_enabled: false,
   };
@@ -154,7 +176,7 @@ public entry fun unpublish_form(form: &mut Form, cap: &CreatorCap, clock: &Clock
   );
 }
 
-/// Submit to a published form. Creates a SubmissionMeta owned by the submitter.
+/// Submit to a published form. Stores SubmissionMeta as a dynamic object field under Form.
 public entry fun submit_form(
   form: &mut Form,
   submission_blob_id: vector<u8>,
@@ -190,8 +212,9 @@ public entry fun submit_form(
   );
 
   form.submission_count = form.submission_count + 1;
+  form.latest_submission_id = sub_id;
 
-  submission::transfer_to_sender(sub, sender);
+  dof::add(&mut form.id, sub_id, sub);
 }
 
 /// Add an admin to a form. Mints an AdminCap to the specified address.
@@ -213,9 +236,9 @@ public entry fun add_admin(
 
 /// Update submission status. Requires AdminCap for the form.
 public entry fun update_submission_status(
-  form: &Form,
-  submission_meta: &mut SubmissionMeta,
+  form: &mut Form,
   admin_cap: &AdminCap,
+  submission_id: ID,
   status: u8,
   clock: &Clock,
 ) {
@@ -223,16 +246,14 @@ public entry fun update_submission_status(
     capabilities::admin_form_id(admin_cap) == object::uid_to_inner(&form.id),
     EInvalidAdminCap,
   );
-  assert!(
-    submission::form_id(submission_meta) == object::uid_to_inner(&form.id),
-    ESubmissionFormMismatch,
-  );
   assert!(submission::is_valid_status(status), EInvalidStatus);
 
+  let form_obj_id = object::uid_to_inner(&form.id);
+  let submission_meta = dof::borrow_mut<ID, SubmissionMeta>(&mut form.id, submission_id);
   submission::set_status(submission_meta, status);
 
   events::emit_submission_updated(
-    object::uid_to_inner(&form.id),
+    form_obj_id,
     submission::id(submission_meta),
     status,
     submission::priority(submission_meta),
@@ -242,9 +263,9 @@ public entry fun update_submission_status(
 
 /// Update submission priority. Requires AdminCap for the form.
 public entry fun update_submission_priority(
-  form: &Form,
-  submission_meta: &mut SubmissionMeta,
+  form: &mut Form,
   admin_cap: &AdminCap,
+  submission_id: ID,
   priority: u8,
   clock: &Clock,
 ) {
@@ -252,20 +273,46 @@ public entry fun update_submission_priority(
     capabilities::admin_form_id(admin_cap) == object::uid_to_inner(&form.id),
     EInvalidAdminCap,
   );
-  assert!(
-    submission::form_id(submission_meta) == object::uid_to_inner(&form.id),
-    ESubmissionFormMismatch,
-  );
   assert!(submission::is_valid_priority(priority), EInvalidPriority);
 
+  let form_obj_id = object::uid_to_inner(&form.id);
+  let submission_meta = dof::borrow_mut<ID, SubmissionMeta>(&mut form.id, submission_id);
   submission::set_priority(submission_meta, priority);
 
   events::emit_submission_updated(
-    object::uid_to_inner(&form.id),
+    form_obj_id,
     submission::id(submission_meta),
     submission::status(submission_meta),
     priority,
     clock.timestamp_ms(),
+  );
+}
+
+/// Update admin note pointer. Requires AdminCap for the form.
+public entry fun update_submission_admin_note(
+  form: &mut Form,
+  admin_cap: &AdminCap,
+  submission_id: ID,
+  note_blob_id: vector<u8>,
+  note_blob_object_id: ID,
+  clock: &Clock,
+) {
+  assert!(
+    capabilities::admin_form_id(admin_cap) == object::uid_to_inner(&form.id),
+    EInvalidAdminCap,
+  );
+  assert!(!std::vector::is_empty(&note_blob_id), EInvalidAdminNotePointer);
+
+  let updated_at_ms = clock.timestamp_ms();
+  let form_obj_id = object::uid_to_inner(&form.id);
+  let submission_meta = dof::borrow_mut<ID, SubmissionMeta>(&mut form.id, submission_id);
+  submission::set_admin_note(submission_meta, note_blob_id, note_blob_object_id, updated_at_ms);
+
+  events::emit_submission_admin_note_updated(
+    form_obj_id,
+    submission::id(submission_meta),
+    submission::admin_note_blob_id(submission_meta),
+    updated_at_ms,
   );
 }
 
