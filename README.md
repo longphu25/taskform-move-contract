@@ -14,6 +14,10 @@ Move is **not** a database. It controls:
 Large data (form schemas, submissions, attachments) lives on **Walrus**.
 Sensitive data is encrypted with **Seal** before upload.
 
+Submission metadata is stored as dynamic object fields under each shared `Form`. This lets the
+creator dashboard list submissions by form object ID, then download the full submission body from
+Walrus only when needed.
+
 ## Objects
 
 | Object | Type | Purpose |
@@ -22,7 +26,7 @@ Sensitive data is encrypted with **Seal** before upload.
 | Form | shared | Form metadata + Walrus blob pointers |
 | CreatorCap | owned | Proves form ownership |
 | AdminCap | owned | Delegated admin access |
-| SubmissionMeta | owned | Submission pointer + status/priority |
+| SubmissionMeta | dynamic object field under Form | Submission pointer + status/priority + admin note pointer |
 | SponsorVault | optional | Holds sponsor funds (nice-to-have) |
 
 ## Entry Functions
@@ -36,6 +40,7 @@ Sensitive data is encrypted with **Seal** before upload.
 | `add_admin` | CreatorCap | Delegate AdminCap |
 | `update_submission_status` | AdminCap | Change status |
 | `update_submission_priority` | AdminCap | Change priority |
+| `update_submission_admin_note` | AdminCap | Store admin note Walrus pointer |
 | `update_form_storage_expiry` | CreatorCap | Update expiry tracking |
 | `configure_sponsored_mode` | CreatorCap | Toggle sponsored submissions |
 
@@ -97,5 +102,5 @@ sui client publish --gas-budget 100000000
 ```text
 create-form.html:  Upload schema → Walrus → create_form → publish_form → public link
 form.html:         Load schema → Walrus → render → encrypt → upload → submit_form
-dashboard.html:    Query events → download from Walrus → validate → decrypt → update status
+dashboard.html:    List Form dynamic fields → fetch SubmissionMeta → download Walrus body → decrypt/review/export
 ```
